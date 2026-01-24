@@ -4,7 +4,7 @@
 
 <img width="429" height="92" alt="ss" src="https://github.com/user-attachments/assets/3e8dda74-6059-4e49-ab5a-36ffa24f3002" />
 
-**VLC streaming** and **YT-DLP download** buttons on YouTube's interface.
+Send Youtube videos to **VLC** and download directly from YouTube's interface.
 
 ![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
