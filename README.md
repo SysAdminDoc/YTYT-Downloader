@@ -1,8 +1,9 @@
 # YTYT-Downloader
 
-<img width="1027" height="114" alt="2026-01-24 13_10_50-LIVE Winter Storm Chasing in the South - YouTube - Chromium" src="https://github.com/user-attachments/assets/24f3d868-4bfa-4aee-83dd-320919704db8" />
+<img width="654" height="366" alt="ytytfull" src="https://github.com/user-attachments/assets/d5892a79-c6ff-47c6-ab63-cacfb8e78622" />
 
-A lightweight userscript that adds **VLC streaming** and **yt-dlp download** buttons directly to YouTube's interface.
+
+**VLC streaming** and **YT-DLP download** buttons on YouTube's interface.
 
 ![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
