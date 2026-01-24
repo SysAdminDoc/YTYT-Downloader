@@ -2,6 +2,7 @@
 
 <img width="654" height="366" alt="ytytfull" src="https://github.com/user-attachments/assets/d5892a79-c6ff-47c6-ab63-cacfb8e78622" />
 
+<img width="429" height="92" alt="ss" src="https://github.com/user-attachments/assets/3e8dda74-6059-4e49-ab5a-36ffa24f3002" />
 
 **VLC streaming** and **YT-DLP download** buttons on YouTube's interface.
 
