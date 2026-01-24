@@ -1,2 +1,147 @@
 # YTYT-Downloader
-Stream YouTube to VLC or download with yt-dlp - buttons in action bar
+
+A lightweight userscript that adds **VLC streaming** and **yt-dlp download** buttons directly to YouTube's interface.
+
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+## Features
+
+- **Stream to VLC** - One-click streaming of any YouTube video to VLC media player
+- **Download with yt-dlp** - Instantly trigger yt-dlp downloads from the browser
+- **Native Integration** - Buttons blend seamlessly into YouTube's action bar
+- **Shorts Support** - Works on both regular videos and YouTube Shorts
+- **SPA Compatible** - Handles YouTube's single-page navigation without page reloads
+
+## Screenshot
+
+The script adds two buttons to the right of YouTube's standard action buttons:
+
+| Button | Color | Function |
+|--------|-------|----------|
+| **VLC** | Orange | Stream video in VLC Player |
+| **DL** | Green | Download with yt-dlp |
+
+## Requirements
+
+### 1. Userscript Manager
+
+Install one of the following browser extensions:
+
+- [Tampermonkey](https://www.tampermonkey.net/) (Chrome, Firefox, Edge, Safari)
+- [Violentmonkey](https://violentmonkey.github.io/) (Chrome, Firefox, Edge)
+- [Greasemonkey](https://www.greasespot.net/) (Firefox)
+
+### 2. Protocol Handlers
+
+This script uses custom URL protocols to communicate with local applications. You'll need to register these handlers on your system.
+
+#### Windows Setup
+
+Create a `.reg` file with the following content and run it:
+
+```reg
+Windows Registry Editor Version 5.00
+
+; VLC Protocol Handler
+[HKEY_CLASSES_ROOT\ytvlc]
+@="URL:YTVLC Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\ytvlc\shell]
+
+[HKEY_CLASSES_ROOT\ytvlc\shell\open]
+
+[HKEY_CLASSES_ROOT\ytvlc\shell\open\command]
+@="\"C:\\Path\\To\\Your\\vlc-handler.bat\" \"%1\""
+
+; yt-dlp Protocol Handler
+[HKEY_CLASSES_ROOT\ytdl]
+@="URL:YTDL Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\ytdl\shell]
+
+[HKEY_CLASSES_ROOT\ytdl\shell\open\command]
+@="\"C:\\Path\\To\\Your\\ytdl-handler.bat\" \"%1\""
+```
+
+#### Example Handler Scripts (Windows)
+
+**vlc-handler.bat**
+```batch
+@echo off
+setlocal EnableDelayedExpansion
+set "url=%~1"
+set "url=!url:ytvlc://=!"
+set "url=!url:%%3A=:!"
+set "url=!url:%%2F=/!"
+set "url=!url:%%3F=?!"
+set "url=!url:%%3D==!"
+set "url=!url:%%26=&!"
+"C:\Program Files\VideoLAN\VLC\vlc.exe" "!url!"
+```
+
+**ytdl-handler.bat**
+```batch
+@echo off
+setlocal EnableDelayedExpansion
+set "url=%~1"
+set "url=!url:ytdl://=!"
+set "url=!url:%%3A=:!"
+set "url=!url:%%2F=/!"
+set "url=!url:%%3F=?!"
+set "url=!url:%%3D==!"
+set "url=!url:%%26=&!"
+cd /d "%USERPROFILE%\Downloads"
+start cmd /k yt-dlp "!url!"
+```
+
+### 3. Required Software
+
+- [VLC Media Player](https://www.videolan.org/vlc/) - For streaming functionality
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) - For download functionality
+
+## Installation
+
+1. Install a userscript manager (see Requirements)
+2. Click the link below or create a new script and paste the contents:
+
+   **[Install YTYT-Downloader](https://raw.githubusercontent.com/SysAdminDoc/ytyt-downloader/main/YTYT-Downloader.user.js)**
+
+3. Set up the protocol handlers for your operating system
+4. Navigate to any YouTube video and use the new buttons!
+
+## How It Works
+
+1. The script detects when you're on a YouTube video or Shorts page
+2. It injects VLC and Download buttons into the action bar
+3. Clicking a button triggers a custom protocol URL (`ytvlc://` or `ytdl://`)
+4. Your OS routes the protocol to the registered handler script
+5. The handler script launches VLC or yt-dlp with the video URL
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Buttons don't appear | Refresh the page or wait a few seconds for YouTube to fully load |
+| "Protocol not recognized" | Ensure the registry entries are correctly installed |
+| VLC doesn't open | Verify VLC path in your handler script |
+| yt-dlp doesn't download | Make sure yt-dlp is installed and in your PATH |
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) - The powerful YouTube downloader
+- [VLC](https://www.videolan.org/) - The versatile media player
+
+---
+
+**[Report Issues](https://github.com/SysAdminDoc/ytyt-downloader/issues)** | **[SysAdminDoc](https://github.com/SysAdminDoc)**
