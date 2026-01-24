@@ -2,7 +2,7 @@
 
 <img width="654" height="366" alt="ytytfull" src="https://github.com/user-attachments/assets/d5892a79-c6ff-47c6-ab63-cacfb8e78622" />
 
-<img width="429" height="92" alt="ss" src="https://github.com/user-attachments/assets/3e8dda74-6059-4e49-ab5a-36ffa24f3002" />
+
 
 Send Youtube videos to **VLC** and download directly from YouTube's interface.
 
@@ -20,6 +20,9 @@ Send Youtube videos to **VLC** and download directly from YouTube's interface.
 ## Screenshot
 
 The script adds two buttons to the right of YouTube's standard action buttons:
+
+<img width="429" height="92" alt="ss" src="https://github.com/user-attachments/assets/3e8dda74-6059-4e49-ab5a-36ffa24f3002" />
+
 
 | Button | Color | Function |
 |--------|-------|----------|
@@ -111,10 +114,17 @@ start cmd /k yt-dlp "!url!"
 1. Install a userscript manager (see Requirements)
 2. Click the link below or create a new script and paste the contents:
 
-   **[Install YTYT-Downloader](https://raw.githubusercontent.com/SysAdminDoc/ytyt-downloader/main/YTYT-Downloader.user.js)**
+   **[Install YTYT-Downloader](https://github.com/SysAdminDoc/YTYT-Downloader/raw/refs/heads/main/src/YTYT_downloader.user.js)**
 
 3. Set up the protocol handlers for your operating system
 4. Navigate to any YouTube video and use the new buttons!
+
+
+<img width="984" height="892" alt="2026-01-24 16_58_56-YTYT-Downloader Setup" src="https://github.com/user-attachments/assets/86cc4732-25ad-47de-9b0a-9b562b6b9b94" />
+<img width="984" height="892" alt="2026-01-24 16_59_23-YTYT-Downloader Setup" src="https://github.com/user-attachments/assets/db2ce562-fa7a-44b5-ad57-a414cd01e5e9" />
+<img width="984" height="892" alt="2026-01-24 16_59_48-YTYT-Downloader Setup" src="https://github.com/user-attachments/assets/6d2fefc3-5445-4390-adc0-e3e3c2d64e54" />
+
+
 
 ## How It Works
 
