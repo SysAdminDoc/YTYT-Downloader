@@ -21,7 +21,7 @@ Send Youtube videos to **VLC** and download directly from YouTube's interface.
 
 The script adds two buttons to the right of YouTube's standard action buttons:
 
-<img width="429" height="92" alt="ss" src="https://github.com/user-attachments/assets/3e8dda74-6059-4e49-ab5a-36ffa24f3002" />
+<img width="227" height="61" alt="dls" src="https://github.com/user-attachments/assets/efbaddc3-c8a8-4a09-91a3-8a7e18eb14c5" />
 
 
 | Button | Color | Function |
