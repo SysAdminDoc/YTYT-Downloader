@@ -9,6 +9,15 @@ Send Youtube videos to **VLC** and download directly from YouTube's interface.
 ![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## 🚀 Quick Install (PowerShell One-Liner)
+
+Paste this into an elevated PowerShell window:
+
+<div class="position-relative">
+  <pre><code>irm https://raw.githubusercontent.com/SysAdminDoc/YTYT-Downloader/refs/heads/main/src/Install-YTYT.ps1 | iex
+</code></pre>
+</div>
+
 ## Features
 
 - **Stream to VLC** - One-click streaming of any YouTube video to VLC media player
