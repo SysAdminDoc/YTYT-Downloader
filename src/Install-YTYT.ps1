@@ -38,6 +38,7 @@ $script:YtDlpUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt
 $script:DefaultDownloadPath = "$env:USERPROFILE\Videos\YouTube"
 $script:GitHubRepo = "https://github.com/SysAdminDoc/YTYT-Downloader"
 $script:UserscriptUrl = "https://github.com/SysAdminDoc/YTYT-Downloader/raw/refs/heads/main/src/YTYT_downloader.user.js"
+$script:YTKitUrl = "https://github.com/SysAdminDoc/YTKit/raw/refs/heads/main/YTKit.user.js"
 
 # Image URLs
 $script:IconUrl = "https://raw.githubusercontent.com/SysAdminDoc/YTYT-Downloader/refs/heads/main/images/icons/ytyticn.ico"
@@ -612,32 +613,63 @@ foreach ($path in $vlcPaths) {
                             <TextBlock Text="3" Foreground="#0a0a0a" FontWeight="Bold" FontSize="14" Margin="-22,7,0,0"/>
                         </StackPanel>
                         
-                        <TextBlock Text="Step 3: Install the Userscript" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,8"/>
-                        <TextBlock Text="Click the button below to install the YTYT-Downloader userscript in your browser." FontSize="14" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,32" TextWrapping="Wrap"/>
+                        <TextBlock Text="Step 3: Install a Userscript" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,8"/>
+                        <TextBlock Text="Choose a userscript to install. Both options use the same protocol handlers configured during installation." FontSize="14" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,24" TextWrapping="Wrap"/>
                         
-                        <!-- Big Install Button -->
-                        <Border Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="16" Padding="32" HorizontalAlignment="Center">
-                            <StackPanel HorizontalAlignment="Center">
-                                <Image x:Name="imgUserscriptIcon" Width="80" Height="80" Margin="0,0,0,20"/>
-                                <TextBlock Text="YTYT-Downloader Userscript" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                                <TextBlock Text="Adds VLC and Download buttons to YouTube" FontSize="13" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,20"/>
-                                <Button x:Name="btnInstallUserscript" Content="Install Userscript" Style="{StaticResource BaseButton}" Padding="32,14" FontSize="16"/>
-                            </StackPanel>
-                        </Border>
+                        <!-- Two Userscript Options Side by Side -->
+                        <Grid HorizontalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="280"/>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="280"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- YTYT-Downloader (Minimal) -->
+                            <Border Grid.Column="0" Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="16" Padding="24">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <Border Background="#22c55e" CornerRadius="40" Width="64" Height="64" Margin="0,0,0,16">
+                                        <TextBlock Text="DL" FontSize="24" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Text="YTYT-Downloader" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Download Buttons Only" FontSize="12" Foreground="{StaticResource AccentGreen}" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                                    <TextBlock Text="Minimal userscript that adds Video, MP3, Transcript download buttons and VLC streaming to YouTube." FontSize="12" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,16" Height="54"/>
+                                    <Button x:Name="btnInstallUserscript" Content="Install YTYT" Style="{StaticResource BaseButton}" Padding="24,12" FontSize="14"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- YTKit (Full Featured) -->
+                            <Border Grid.Column="2" Background="{StaticResource BgCard}" BorderBrush="#8b5cf6" BorderThickness="2" CornerRadius="16" Padding="24">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <Border CornerRadius="40" Width="64" Height="64" Margin="0,0,0,16">
+                                        <Border.Background>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                <GradientStop Color="#8b5cf6" Offset="0"/>
+                                                <GradientStop Color="#ec4899" Offset="1"/>
+                                            </LinearGradientBrush>
+                                        </Border.Background>
+                                        <TextBlock Text="YT" FontSize="24" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Text="YTKit" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Full Featured Suite" FontSize="12" Foreground="#a78bfa" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                                    <TextBlock Text="Complete YouTube customization: downloads, themes, video/channel hiding, playback enhancements, and more." FontSize="12" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,16" Height="54"/>
+                                    <Button x:Name="btnInstallYTKit" Content="Install YTKit" Style="{StaticResource SecondaryButton}" Padding="24,12" FontSize="14"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                         
                         <!-- Success Message -->
-                        <Border Background="#14532d" BorderBrush="{StaticResource AccentGreen}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,32,0,0">
+                        <Border Background="#14532d" BorderBrush="{StaticResource AccentGreen}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,24,0,0">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="OK" FontSize="16" Foreground="{StaticResource AccentGreen}" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Top"/>
                                 <StackPanel>
                                     <TextBlock Text="Setup Complete!" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AccentGreen}" Margin="0,0,0,4"/>
-                                    <TextBlock Text="After installing the userscript, visit any YouTube video. You'll see VLC (orange) and DL (green) buttons next to the like/share buttons." FontSize="13" Foreground="#86efac" TextWrapping="Wrap"/>
+                                    <TextBlock Text="After installing either userscript, visit any YouTube video. You'll see download buttons next to the like/share buttons." FontSize="13" Foreground="#86efac" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
                         
                         <!-- Alternate Install -->
-                        <TextBlock Text="Alternative: Manual Installation" FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,32,0,8"/>
+                        <TextBlock Text="Alternative: Manual Installation" FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,24,0,8"/>
                         <Border Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Padding="16">
                             <StackPanel>
                                 <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="{StaticResource TextSecondary}">
@@ -746,8 +778,8 @@ $txtSelectedBrowser = $window.FindName("txtSelectedBrowser")
 $pnlManagerLinks = $window.FindName("pnlManagerLinks")
 
 # Step 3 controls
-$imgUserscriptIcon = $window.FindName("imgUserscriptIcon")
 $btnInstallUserscript = $window.FindName("btnInstallUserscript")
+$btnInstallYTKit = $window.FindName("btnInstallYTKit")
 $btnOpenFolder = $window.FindName("btnOpenFolder")
 
 # Uninstall controls
@@ -768,7 +800,6 @@ if ($logoImage) { $imgLogo.Source = $logoImage }
 
 $iconImage = Get-BitmapImageFromUrl -Url $script:IconPngUrl
 if ($iconImage) { 
-    $imgUserscriptIcon.Source = $iconImage 
     $imgUninstallIcon.Source = $iconImage
 }
 
@@ -943,9 +974,14 @@ $btnEdge.Add_Click({ Show-BrowserLinks -Browser "Edge" })
 $btnSafari.Add_Click({ Show-BrowserLinks -Browser "Safari" })
 $btnOpera.Add_Click({ Show-BrowserLinks -Browser "Opera" })
 
-# Install Userscript button
+# Install Userscript button (YTYT-Downloader minimal)
 $btnInstallUserscript.Add_Click({
     Start-Process $script:UserscriptUrl
+})
+
+# Install YTKit button (Full featured)
+$btnInstallYTKit.Add_Click({
+    Start-Process $script:YTKitUrl
 })
 
 # Open folder button
