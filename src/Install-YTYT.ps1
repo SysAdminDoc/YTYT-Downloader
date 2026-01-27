@@ -17,6 +17,18 @@
 #Requires -Version 5.1
 
 # ============================================
+# HIDE CONSOLE WINDOW
+# ============================================
+Add-Type -Name Window -Namespace Console -MemberDefinition '
+[DllImport("Kernel32.dll")]
+public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
+'
+$consolePtr = [Console.Window]::GetConsoleWindow()
+[Console.Window]::ShowWindow($consolePtr, 0) | Out-Null
+
+# ============================================
 # CONFIGURATION
 # ============================================
 $script:AppName = "YTYT-Downloader"
@@ -130,6 +142,43 @@ function Get-BitmapImageFromUrl {
 $tempDir = Join-Path $env:TEMP "YTYT-Installer"
 if (!(Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir -Force | Out-Null }
 
+# ============================================
+# AUTO-UNINSTALL PREVIOUS VERSION
+# ============================================
+function Uninstall-Previous {
+    # Force kill related processes
+    @("yt-dlp", "ffmpeg", "ffprobe", "vlc") | ForEach-Object {
+        Get-Process -Name $_ -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 500
+    
+    # Remove protocol handlers
+    @("ytvlc", "ytvlcq", "ytdl", "ytmpv", "ytdlplay") | ForEach-Object {
+        Remove-Item -Path "HKCU:\Software\Classes\$_" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    
+    # Remove install directory
+    if (Test-Path $script:InstallPath) {
+        Remove-Item -Path $script:InstallPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    
+    # Remove desktop shortcut
+    $shortcutPath = "$env:USERPROFILE\Desktop\YouTube Download.lnk"
+    if (Test-Path $shortcutPath) {
+        Remove-Item $shortcutPath -Force -ErrorAction SilentlyContinue
+    }
+    
+    # Remove startup shortcut
+    $startupPath = [Environment]::GetFolderPath('Startup')
+    $serverShortcut = Join-Path $startupPath "YTYT-Server.lnk"
+    if (Test-Path $serverShortcut) {
+        Remove-Item $serverShortcut -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# Run auto-uninstall silently
+Uninstall-Previous
+
 # Download icon for window
 $iconPath = Join-Path $tempDir "ytyt.ico"
 Download-Image -Url $script:IconUrl -OutPath $iconPath | Out-Null
@@ -154,8 +203,9 @@ foreach ($path in $vlcPaths) {
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="YTYT-Downloader Setup" Height="720" Width="800"
+        Title="YTYT-Downloader Setup" Height="980" Width="900"
         WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize"
+        WindowState="Normal"
         Background="#0a0a0a">
     <Window.Resources>
         <!-- Color Palette -->
@@ -377,10 +427,17 @@ foreach ($path in $vlcPaths) {
             
             <!-- Step 1: Welcome / Base Tools -->
             <TabItem x:Name="tabStep1">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="32,24">
+                <Grid Margin="24,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Header Row -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
                         <!-- Step Indicator -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,32">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
                             <Ellipse Width="32" Height="32" Fill="{StaticResource AccentGreen}"/>
                             <TextBlock Text="1" Foreground="#0a0a0a" FontWeight="Bold" FontSize="14" Margin="-22,7,0,0"/>
                             <Rectangle Width="60" Height="2" Fill="{StaticResource Border}" VerticalAlignment="Center" Margin="8,0"/>
@@ -390,73 +447,89 @@ foreach ($path in $vlcPaths) {
                             <Ellipse Width="32" Height="32" Fill="{StaticResource BgCard}" Stroke="{StaticResource Border}" StrokeThickness="2"/>
                             <TextBlock Text="3" Foreground="{StaticResource TextMuted}" FontWeight="Bold" FontSize="14" Margin="-22,7,0,0"/>
                         </StackPanel>
+                        <TextBlock Text="Step 1: Install Base Tools" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <!-- Two Column Layout -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="320"/>
+                        </Grid.ColumnDefinitions>
                         
-                        <TextBlock Text="Step 1: Install Base Tools" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,8"/>
-                        <TextBlock Text="Configure installation paths and options for yt-dlp and ffmpeg." FontSize="14" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,24" TextWrapping="Wrap"/>
-                        
-                        <!-- VLC Status -->
-                        <Border Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,0,16">
-                            <Grid>
+                        <!-- Left Column: Configuration -->
+                        <StackPanel Grid.Column="0">
+                            <!-- VLC Status -->
+                            <Border Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse x:Name="vlcIndicator" Width="10" Height="10" Fill="{StaticResource AccentRed}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="VLC Media Player" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                                        <TextBlock x:Name="txtVlcStatus" Text="Not detected" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                    </StackPanel>
+                                    <Button x:Name="btnInstallVlc" Content="Install" Grid.Column="2" Style="{StaticResource SecondaryButton}" Padding="12,6"/>
+                                </Grid>
+                            </Border>
+                            
+                            <!-- VLC Path -->
+                            <TextBlock Text="VLC Path" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <Ellipse x:Name="vlcIndicator" Width="12" Height="12" Fill="{StaticResource AccentRed}" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="VLC Media Player" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
-                                    <TextBlock x:Name="txtVlcStatus" Text="Not detected" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                                <TextBox x:Name="txtVlcPath" Grid.Column="0" FontSize="12"/>
+                                <Button x:Name="btnBrowseVlc" Content="..." Grid.Column="1" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Padding="12,8" Width="40"/>
+                            </Grid>
+                            
+                            <!-- Download Path -->
+                            <TextBlock Text="Download Folder" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="txtDownloadPath" Grid.Column="0" FontSize="12"/>
+                                <Button x:Name="btnBrowseDownload" Content="..." Grid.Column="1" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Padding="12,8" Width="40"/>
+                            </Grid>
+                            
+                            <!-- Options -->
+                            <TextBlock Text="Options" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,8"/>
+                            <Border Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="16">
+                                <StackPanel>
+                                    <CheckBox x:Name="chkAutoUpdate" Content="Auto-update yt-dlp before downloads" IsChecked="True" Margin="0,0,0,8"/>
+                                    <CheckBox x:Name="chkNotifications" Content="Show toast notifications" IsChecked="True" Margin="0,0,0,8"/>
+                                    <CheckBox x:Name="chkDesktopShortcut" Content="Create desktop shortcut" IsChecked="False"/>
                                 </StackPanel>
-                                <Button x:Name="btnInstallVlc" Content="Install VLC" Grid.Column="2" Style="{StaticResource SecondaryButton}" Padding="16,8"/>
+                            </Border>
+                        </StackPanel>
+                        
+                        <!-- Right Column: Installation Log -->
+                        <Border Grid.Column="2" Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="12">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Installation Log" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,8"/>
+                                <ScrollViewer x:Name="statusScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <TextBlock x:Name="txtStatus" Text="Ready to install..." Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" FontFamily="Cascadia Code, Consolas" FontSize="11"/>
+                                </ScrollViewer>
                             </Grid>
                         </Border>
-                        
-                        <!-- VLC Path -->
-                        <TextBlock Text="VLC Path" FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,8"/>
-                        <Grid Margin="0,0,0,16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="txtVlcPath" Grid.Column="0"/>
-                            <Button x:Name="btnBrowseVlc" Content="Browse" Grid.Column="1" Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" Padding="16,10"/>
-                        </Grid>
-                        
-                        <!-- Download Path -->
-                        <TextBlock Text="Download Folder" FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,8"/>
-                        <Grid Margin="0,0,0,24">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="txtDownloadPath" Grid.Column="0"/>
-                            <Button x:Name="btnBrowseDownload" Content="Browse" Grid.Column="1" Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" Padding="16,10"/>
-                        </Grid>
-                        
-                        <!-- Options -->
-                        <TextBlock Text="Options" FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,12"/>
-                        <Border Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Padding="20">
-                            <StackPanel>
-                                <CheckBox x:Name="chkAutoUpdate" Content="Auto-update yt-dlp before each download" IsChecked="True" Margin="0,0,0,12"/>
-                                <CheckBox x:Name="chkNotifications" Content="Show toast notifications for download progress" IsChecked="True" Margin="0,0,0,12"/>
-                                <CheckBox x:Name="chkDesktopShortcut" Content="Create desktop shortcut for clipboard downloads" IsChecked="False"/>
-                            </StackPanel>
-                        </Border>
-                        
-                        <!-- Status Box -->
-                        <TextBlock Text="Installation Log" FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,24,0,8"/>
-                        <Border Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Padding="16">
-                            <ScrollViewer x:Name="statusScroll" Height="120" VerticalScrollBarVisibility="Auto">
-                                <TextBlock x:Name="txtStatus" Text="Ready to install base tools..." Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" FontFamily="Cascadia Code, Consolas, monospace" FontSize="12"/>
-                            </ScrollViewer>
-                        </Border>
-                        
-                        <!-- Progress Bar -->
-                        <Border Background="{StaticResource BgCard}" CornerRadius="4" Height="8" Margin="0,16,0,0">
-                            <Border x:Name="progressFill" Background="{StaticResource AccentGreen}" CornerRadius="4" HorizontalAlignment="Left" Width="0"/>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
+                    </Grid>
+                    
+                    <!-- Progress Bar Row -->
+                    <Border Grid.Row="2" Background="{StaticResource BgCard}" CornerRadius="4" Height="6" Margin="0,16,0,0">
+                        <Border x:Name="progressFill" Background="{StaticResource AccentGreen}" CornerRadius="4" HorizontalAlignment="Left" Width="0"/>
+                    </Border>
+                </Grid>
             </TabItem>
             
             <!-- Step 2: Install Userscript Manager -->
@@ -1125,11 +1198,18 @@ if ($config.Notifications) {
                     Update-Status "  [OK] VLC handler"
                     Set-Progress 50
                     
-                    # Download Handler
+                    # Download Handler with Progress UI
                     $dlHandler = @'
 param([string]$url)
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+# Set console encoding to UTF-8 for proper character display
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 $configPath = Join-Path $PSScriptRoot "config.json"
 $config = Get-Content $configPath -Raw | ConvertFrom-Json
@@ -1137,54 +1217,418 @@ $config = Get-Content $configPath -Raw | ConvertFrom-Json
 $videoUrl = $url -replace '^ytdl://', ''
 $videoUrl = [System.Uri]::UnescapeDataString($videoUrl)
 
+$audioOnly = $videoUrl -match "ytyt_audio_only=1|ytkit_audio_only=1"
+$videoUrl = $videoUrl -replace "[&?]ytyt_audio_only=1", ""
+$videoUrl = $videoUrl -replace "[&?]ytkit_audio_only=1", ""
+
+# Extract video ID using comprehensive regex
+$videoId = $null
+$pattern = "(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^`"&?\/ ]{11})"
+if ($videoUrl -match $pattern) {
+    $videoId = $matches[1]
+}
+
 $iconPath = Join-Path $PSScriptRoot "icon.ico"
-$notify = $null
-if ($config.Notifications) {
-    $notify = New-Object System.Windows.Forms.NotifyIcon
-    if (Test-Path $iconPath) {
-        $notify.Icon = New-Object System.Drawing.Icon($iconPath)
-    } else {
-        $notify.Icon = [System.Drawing.SystemIcons]::Information
+$progressFile = Join-Path $env:TEMP "ytyt_progress_$([guid]::NewGuid().ToString('N')).txt"
+
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "YTYT Download"
+$form.Size = New-Object System.Drawing.Size(420, 140)
+$form.FormBorderStyle = "None"
+$form.StartPosition = "Manual"
+$form.BackColor = [System.Drawing.Color]::FromArgb(18, 18, 18)
+$form.TopMost = $true
+$form.ShowInTaskbar = $false
+
+# Stack windows if multiple downloads are running
+$screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$baseX = $screen.Right - 436
+$baseY = $screen.Bottom - 156
+
+# Use temp file to track window positions
+$stackFile = Join-Path $env:TEMP "ytyt_stack.txt"
+$script:mySlot = 0
+
+# Find an available slot (0-5)
+for ($i = 0; $i -lt 6; $i++) {
+    $slotFile = Join-Path $env:TEMP "ytyt_slot_$i.lock"
+    if (!(Test-Path $slotFile)) {
+        $script:mySlot = $i
+        $videoId | Out-File $slotFile -Force
+        break
     }
-    $notify.BalloonTipTitle = "YTYT-Downloader"
-    $notify.BalloonTipText = "Starting download..."
-    $notify.Visible = $true
-    $notify.ShowBalloonTip(2000)
 }
 
-if ($config.AutoUpdate) {
-    Start-Process -FilePath $config.YtDlpPath -ArgumentList "--update" -NoNewWindow -Wait -ErrorAction SilentlyContinue
+$offsetY = $script:mySlot * 150
+$newY = $baseY - $offsetY
+if ($newY -lt 50) { $newY = 50 }
+
+$form.Location = New-Object System.Drawing.Point($baseX, $newY)
+
+$script:dragStart = $null
+$form.Add_MouseDown({ param($s,$e) if ($e.Button -eq "Left") { $script:dragStart = $e.Location } })
+$form.Add_MouseMove({ param($s,$e) if ($script:dragStart) { $form.Location = [System.Drawing.Point]::new(($form.Location.X + $e.X - $script:dragStart.X), ($form.Location.Y + $e.Y - $script:dragStart.Y)) } })
+$form.Add_MouseUp({ $script:dragStart = $null })
+
+$lblHeader = New-Object System.Windows.Forms.Label
+$lblHeader.Text = "YTYT Download"
+$lblHeader.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(34, 197, 94)
+$lblHeader.Location = New-Object System.Drawing.Point(16, 10)
+$lblHeader.AutoSize = $true
+$form.Controls.Add($lblHeader)
+
+$btnMin = New-Object System.Windows.Forms.Label
+$btnMin.Text = "_"
+$btnMin.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+$btnMin.ForeColor = [System.Drawing.Color]::Gray
+$btnMin.Location = New-Object System.Drawing.Point(365, 8)
+$btnMin.Size = New-Object System.Drawing.Size(20, 20)
+$btnMin.Cursor = "Hand"
+$btnMin.Add_Click({ $form.Hide() })
+$btnMin.Add_MouseEnter({ $btnMin.ForeColor = [System.Drawing.Color]::White })
+$btnMin.Add_MouseLeave({ $btnMin.ForeColor = [System.Drawing.Color]::Gray })
+$form.Controls.Add($btnMin)
+
+$btnClose = New-Object System.Windows.Forms.Label
+$btnClose.Text = "X"
+$btnClose.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$btnClose.ForeColor = [System.Drawing.Color]::Gray
+$btnClose.Location = New-Object System.Drawing.Point(390, 10)
+$btnClose.Size = New-Object System.Drawing.Size(20, 20)
+$btnClose.Cursor = "Hand"
+$btnClose.Add_Click({ $script:cancelled = $true; $form.Close() })
+$btnClose.Add_MouseEnter({ $btnClose.ForeColor = [System.Drawing.Color]::Red })
+$btnClose.Add_MouseLeave({ $btnClose.ForeColor = [System.Drawing.Color]::Gray })
+$form.Controls.Add($btnClose)
+
+$picThumb = New-Object System.Windows.Forms.PictureBox
+$picThumb.Size = New-Object System.Drawing.Size(96, 54)
+$picThumb.Location = New-Object System.Drawing.Point(16, 38)
+$picThumb.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$picThumb.SizeMode = "Zoom"
+$form.Controls.Add($picThumb)
+
+$lblTitle = New-Object System.Windows.Forms.Label
+$lblTitle.Text = "Fetching video info..."
+$lblTitle.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 9)
+$lblTitle.ForeColor = [System.Drawing.Color]::White
+$lblTitle.Location = New-Object System.Drawing.Point(120, 38)
+$lblTitle.Size = New-Object System.Drawing.Size(280, 20)
+$form.Controls.Add($lblTitle)
+
+$pnlBg = New-Object System.Windows.Forms.Panel
+$pnlBg.Size = New-Object System.Drawing.Size(230, 8)
+$pnlBg.Location = New-Object System.Drawing.Point(120, 64)
+$pnlBg.BackColor = [System.Drawing.Color]::FromArgb(50, 50, 50)
+$form.Controls.Add($pnlBg)
+
+$pnlFill = New-Object System.Windows.Forms.Panel
+$pnlFill.Size = New-Object System.Drawing.Size(0, 8)
+$pnlFill.Location = New-Object System.Drawing.Point(0, 0)
+$pnlFill.BackColor = [System.Drawing.Color]::FromArgb(34, 197, 94)
+$pnlBg.Controls.Add($pnlFill)
+
+$lblPct = New-Object System.Windows.Forms.Label
+$lblPct.Text = "0%"
+$lblPct.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$lblPct.ForeColor = [System.Drawing.Color]::FromArgb(34, 197, 94)
+$lblPct.Location = New-Object System.Drawing.Point(358, 61)
+$lblPct.Size = New-Object System.Drawing.Size(45, 16)
+$lblPct.TextAlign = "MiddleRight"
+$form.Controls.Add($lblPct)
+
+$lblStatus = New-Object System.Windows.Forms.Label
+$lblStatus.Text = "Preparing..."
+$lblStatus.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(150, 150, 150)
+$lblStatus.Location = New-Object System.Drawing.Point(120, 80)
+$lblStatus.Size = New-Object System.Drawing.Size(200, 16)
+$form.Controls.Add($lblStatus)
+
+$lblSpeed = New-Object System.Windows.Forms.Label
+$lblSpeed.Text = ""
+$lblSpeed.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+$lblSpeed.ForeColor = [System.Drawing.Color]::Gray
+$lblSpeed.Location = New-Object System.Drawing.Point(120, 100)
+$lblSpeed.Size = New-Object System.Drawing.Size(80, 14)
+$form.Controls.Add($lblSpeed)
+
+$lblEta = New-Object System.Windows.Forms.Label
+$lblEta.Text = ""
+$lblEta.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+$lblEta.ForeColor = [System.Drawing.Color]::Gray
+$lblEta.Location = New-Object System.Drawing.Point(210, 100)
+$lblEta.Size = New-Object System.Drawing.Size(80, 14)
+$form.Controls.Add($lblEta)
+
+$tray = New-Object System.Windows.Forms.NotifyIcon
+if (Test-Path $iconPath) { $tray.Icon = New-Object System.Drawing.Icon($iconPath) }
+else { $tray.Icon = [System.Drawing.SystemIcons]::Application }
+$tray.Text = "YTYT Download"
+$tray.Visible = $true
+$tray.Add_Click({ param($s,$e) if ($e.Button -eq "Left") { if ($form.Visible) { $form.Hide() } else { $form.Show(); $form.Activate() } } })
+
+$menu = New-Object System.Windows.Forms.ContextMenuStrip
+$menu.Items.Add("Show", $null, { $form.Show(); $form.Activate() }) | Out-Null
+$menu.Items.Add("-") | Out-Null
+$menu.Items.Add("Cancel", $null, { $script:cancelled = $true }) | Out-Null
+$menu.Items.Add("Close", $null, { $form.Close() }) | Out-Null
+$tray.ContextMenuStrip = $menu
+
+if ($audioOnly) {
+    $pnlFill.BackColor = [System.Drawing.Color]::MediumPurple
+    $lblPct.ForeColor = [System.Drawing.Color]::MediumPurple
 }
 
-$outputTemplate = Join-Path $config.DownloadPath "%(title)s.%(ext)s"
-$ffmpegLocation = Split-Path $config.FfmpegPath -Parent
+$script:cancelled = $false
+$script:job = $null
+$script:step = 0
+$script:lastLine = 0
+$script:retryCount = 0
+$script:maxRetries = 3
 
-$arguments = @(
-    "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
-    "--merge-output-format", "mp4"
-    "--ffmpeg-location", "`"$ffmpegLocation`""
-    "-o", "`"$outputTemplate`""
-    $videoUrl
-)
+# Force TLS 1.2 for YouTube
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 
-$process = Start-Process -FilePath $config.YtDlpPath -ArgumentList $arguments -NoNewWindow -Wait -PassThru
+# Load thumbnail from img.youtube.com using WebClient
+if ($videoId) {
+    $thumbFile = Join-Path $env:TEMP "ytyt_thumb_$videoId.jpg"
+    try {
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        
+        # Try maxresdefault first
+        try {
+            $wc.DownloadFile("https://img.youtube.com/vi/$videoId/maxresdefault.jpg", $thumbFile)
+        } catch {
+            # Fallback to hqdefault
+            $wc.DownloadFile("https://img.youtube.com/vi/$videoId/hqdefault.jpg", $thumbFile)
+        }
+        $wc.Dispose()
+        
+        if (Test-Path $thumbFile) {
+            # Load into MemoryStream to avoid file locking
+            $bytes = [System.IO.File]::ReadAllBytes($thumbFile)
+            $ms = New-Object System.IO.MemoryStream(,$bytes)
+            $picThumb.Image = [System.Drawing.Image]::FromStream($ms)
+            # Delete temp file immediately since we loaded into memory
+            Remove-Item $thumbFile -Force -ErrorAction SilentlyContinue
+        }
+    } catch {}
+}
 
-if ($config.Notifications -and $notify) {
-    Start-Sleep -Seconds 1
-    if ($process.ExitCode -eq 0) {
-        $notify.BalloonTipText = "Download complete!"
-        $notify.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
-    } else {
-        $notify.BalloonTipText = "Download may have failed"
-        $notify.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Warning
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 500
+$timer.Add_Tick({
+    try {
+        if ($script:step -eq 0) {
+            $lblStatus.Text = "Fetching video info..."
+            $script:step = 1
+        }
+        elseif ($script:step -eq 1) {
+            # Get title with proper UTF-8 encoding
+            try {
+                # Set console encoding to UTF-8 for yt-dlp output
+                $prevEncoding = [Console]::OutputEncoding
+                [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+                $titleResult = & $config.YtDlpPath --get-title --no-warnings --no-playlist --encoding utf-8 $videoUrl 2>$null
+                [Console]::OutputEncoding = $prevEncoding
+                if ($titleResult) {
+                    $lblTitle.Text = $titleResult.Trim()
+                    $tray.Text = "DL: " + $titleResult.Substring(0, [Math]::Min(45, $titleResult.Length))
+                }
+            } catch {}
+            $script:step = 2
+        }
+        elseif ($script:step -eq 2) {
+            # Start download as background job
+            $lblStatus.Text = "Starting download..."
+            
+            $ffLoc = Split-Path $config.FfmpegPath -Parent
+            $outTpl = Join-Path $config.DownloadPath "%(title)s.%(ext)s"
+            $ytdlp = $config.YtDlpPath
+            
+            # Clear progress file
+            "" | Set-Content $progressFile -Force
+            
+            if ($audioOnly) {
+                $outTpl = Join-Path $config.DownloadPath "%(title)s.mp3"
+                $lblStatus.Text = "Downloading audio..."
+                $script:job = Start-Job -ScriptBlock {
+                    param($ytdlp, $ffLoc, $outTpl, $vUrl, $outFile)
+                    & $ytdlp -f bestaudio --extract-audio --audio-format mp3 --audio-quality 0 --newline --progress --ffmpeg-location $ffLoc -o $outTpl $vUrl 2>&1 | ForEach-Object { $_ | Out-File $outFile -Append -Encoding utf8; $_ }
+                } -ArgumentList $ytdlp, $ffLoc, $outTpl, $videoUrl, $progressFile
+            } else {
+                $lblStatus.Text = "Downloading..."
+                $script:job = Start-Job -ScriptBlock {
+                    param($ytdlp, $ffLoc, $outTpl, $vUrl, $outFile)
+                    & $ytdlp -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]" --merge-output-format mp4 --newline --progress --ffmpeg-location $ffLoc -o $outTpl $vUrl 2>&1 | ForEach-Object { $_ | Out-File $outFile -Append -Encoding utf8; $_ }
+                } -ArgumentList $ytdlp, $ffLoc, $outTpl, $videoUrl, $progressFile
+            }
+            $script:step = 3
+        }
+        elseif ($script:step -eq 3) {
+            # Read progress from file
+            if (Test-Path $progressFile) {
+                try {
+                    $content = Get-Content $progressFile -Raw -ErrorAction SilentlyContinue
+                    if ($content) {
+                        # Find all percentage matches and use the last one
+                        $allMatches = [regex]::Matches($content, '\[download\]\s+(\d+\.?\d*)%')
+                        if ($allMatches.Count -gt 0) {
+                            $lastMatch = $allMatches[$allMatches.Count - 1]
+                            $pct = [double]$lastMatch.Groups[1].Value
+                            $pnlFill.Width = [int](($pct / 100) * 230)
+                            $lblPct.Text = [math]::Round($pct).ToString() + "%"
+                        }
+                        
+                        # Get speed and ETA from last occurrence
+                        if ($content -match '(?s).*of\s+~?(\d+\.?\d*\w+)\s+at\s+(\S+)\s+ETA\s+(\S+)') {
+                            $lblStatus.Text = "Downloading ($($matches[1]))..."
+                            $lblSpeed.Text = $matches[2]
+                            $lblEta.Text = "ETA " + $matches[3]
+                        }
+                        
+                        if ($content -match 'already been downloaded') {
+                            $lblStatus.Text = "Already downloaded"
+                            $pnlFill.Width = 230
+                            $lblPct.Text = "100%"
+                        }
+                        elseif ($content -match '\[Merger\]|Merging formats') {
+                            $lblStatus.Text = "Merging..."
+                            $lblSpeed.Text = ""; $lblEta.Text = ""
+                        }
+                        elseif ($content -match '\[ExtractAudio\]') {
+                            $lblStatus.Text = "Extracting audio..."
+                        }
+                    }
+                } catch {}
+            }
+            
+            # Check if cancelled
+            if ($script:cancelled -and $script:job) {
+                Stop-Job -Job $script:job -ErrorAction SilentlyContinue
+                Remove-Job -Job $script:job -Force -ErrorAction SilentlyContinue
+                $script:step = 4
+                return
+            }
+            
+            # Check if job completed
+            if ($script:job -and $script:job.State -ne "Running") {
+                $script:step = 4
+            }
+        }
+        elseif ($script:step -eq 4) {
+            $timer.Stop()
+            
+            # Get job result
+            $jobOutput = ""
+            if ($script:job) {
+                $jobOutput = Receive-Job -Job $script:job -ErrorAction SilentlyContinue | Out-String
+                Remove-Job -Job $script:job -Force -ErrorAction SilentlyContinue
+            }
+            
+            # Cleanup progress file
+            if (Test-Path $progressFile) { Remove-Item $progressFile -Force -ErrorAction SilentlyContinue }
+            
+            if ($script:cancelled) {
+                $lblStatus.Text = "Cancelled"
+                $lblStatus.ForeColor = [System.Drawing.Color]::Orange
+                $tray.ShowBalloonTip(2000, "YTYT", "Cancelled", "Warning")
+            } else {
+                # Check for success indicators
+                $progressContent = ""
+                if (Test-Path $progressFile) { $progressContent = Get-Content $progressFile -Raw -ErrorAction SilentlyContinue }
+                $allOutput = $jobOutput + $progressContent
+                
+                $success = ($allOutput -match "100%|has already been downloaded|Merging formats into|DelayedMuxer")
+                
+                if ($success) {
+                    $pnlFill.Width = 230
+                    $lblPct.Text = "100%"
+                    $lblStatus.Text = "Complete!"
+                    $lblStatus.ForeColor = [System.Drawing.Color]::LimeGreen
+                    $lblSpeed.Text = ""; $lblEta.Text = ""
+                    $tray.ShowBalloonTip(3000, "YTYT", "Download complete!", "Info")
+                    $ct = New-Object System.Windows.Forms.Timer
+                    $ct.Interval = 4000
+                    $ct.Add_Tick({ $ct.Stop(); $form.Close() })
+                    $ct.Start()
+                } else {
+                    # Retry logic
+                    $script:retryCount++
+                    if ($script:retryCount -lt $script:maxRetries) {
+                        $lblStatus.Text = "Retrying ($($script:retryCount)/$($script:maxRetries))..."
+                        $lblStatus.ForeColor = [System.Drawing.Color]::Orange
+                        $pnlFill.Width = 0
+                        $lblPct.Text = "0%"
+                        $lblSpeed.Text = ""; $lblEta.Text = ""
+                        $script:step = 2  # Go back to start download
+                        $timer.Start()
+                    } else {
+                        $lblStatus.Text = "Failed after $($script:maxRetries) attempts"
+                        $lblStatus.ForeColor = [System.Drawing.Color]::Red
+                        $tray.ShowBalloonTip(3000, "YTYT", "Download failed", "Error")
+                    }
+                }
+            }
+        }
+    } catch {
+        $lblStatus.Text = "Error: $_"
+        $lblStatus.ForeColor = [System.Drawing.Color]::Red
     }
-    $notify.ShowBalloonTip(3000)
-    Start-Sleep -Seconds 3
-    $notify.Dispose()
-}
+})
+
+$form.Add_Shown({ $timer.Start() })
+
+# Position timer - check for lower available slots and move window down
+$posTimer = New-Object System.Windows.Forms.Timer
+$posTimer.Interval = 2000
+$posTimer.Add_Tick({
+    # Check if a lower slot is available
+    for ($i = 0; $i -lt $script:mySlot; $i++) {
+        $checkSlot = Join-Path $env:TEMP "ytyt_slot_$i.lock"
+        if (!(Test-Path $checkSlot)) {
+            # Lower slot available - claim it and move down
+            $oldSlotFile = Join-Path $env:TEMP "ytyt_slot_$($script:mySlot).lock"
+            if (Test-Path $oldSlotFile) { Remove-Item $oldSlotFile -Force -ErrorAction SilentlyContinue }
+            
+            $script:mySlot = $i
+            $videoId | Out-File $checkSlot -Force
+            
+            # Recalculate position
+            $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+            $baseY = $screen.Bottom - 156
+            $newY = $baseY - ($script:mySlot * 150)
+            if ($newY -lt 50) { $newY = 50 }
+            
+            $form.Location = New-Object System.Drawing.Point($form.Location.X, $newY)
+            break
+        }
+    }
+})
+$posTimer.Start()
+
+$form.Add_FormClosed({
+    $timer.Stop()
+    $posTimer.Stop()
+    if ($script:job) { 
+        Stop-Job -Job $script:job -ErrorAction SilentlyContinue
+        Remove-Job -Job $script:job -Force -ErrorAction SilentlyContinue 
+    }
+    if (Test-Path $progressFile) { Remove-Item $progressFile -Force -ErrorAction SilentlyContinue }
+    # Release slot for window stacking
+    $slotFile = Join-Path $env:TEMP "ytyt_slot_$($script:mySlot).lock"
+    if (Test-Path $slotFile) { Remove-Item $slotFile -Force -ErrorAction SilentlyContinue }
+    $tray.Visible = $false
+    $tray.Dispose()
+})
+
+[System.Windows.Forms.Application]::Run($form)
 '@
                     $dlHandler | Set-Content (Join-Path $script:InstallPath "ytdl-handler.ps1") -Encoding UTF8
-                    Update-Status "  [OK] Download handler"
+                    Update-Status "  [OK] Download handler (with progress UI)"
                     Set-Progress 55
                     
                     # VLC Queue Handler
@@ -1300,134 +1744,115 @@ objShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
 // ==UserScript==
 // @name         YTYT-Downloader
 // @namespace    https://github.com/SysAdminDoc/ytyt-downloader
-// @version      1.3.0
-// @description  Stream YouTube to VLC or download with yt-dlp - buttons in action bar
+// @version      2.0.0
+// @description  Stream YouTube to VLC or download video/audio/transcript with yt-dlp
 // @author       SysAdminDoc
 // @match        https://www.youtube.com/*
 // @match        https://youtube.com/*
-// @grant        GM_addStyle
-// @run-at       document-idle
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @run-at       document-start
 // @homepageURL  https://github.com/SysAdminDoc/ytyt-downloader
 // @supportURL   https://github.com/SysAdminDoc/ytyt-downloader/issues
 // ==/UserScript==
 
 (function() {
     'use strict';
+    const DEFAULT_SETTINGS = { showVLC: false, showVideo: true, showAudio: true, showTranscript: true };
+    function getSettings() { try { const s = GM_getValue('ytyt_settings', null); if (s) return { ...DEFAULT_SETTINGS, ...JSON.parse(s) }; } catch (e) {} return { ...DEFAULT_SETTINGS }; }
+    function saveSettings(s) { try { GM_setValue('ytyt_settings', JSON.stringify(s)); } catch (e) {} }
+    let settings = getSettings();
 
-    GM_addStyle(`
-        .ytyt-vlc-btn {
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 6px !important;
-            padding: 0 16px !important;
-            height: 36px !important;
-            margin-left: 8px !important;
-            border-radius: 18px !important;
-            border: none !important;
-            background: #f97316 !important;
-            color: white !important;
-            font-family: "Roboto", "Arial", sans-serif !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
-            cursor: pointer !important;
-        }
-        .ytyt-vlc-btn:hover { background: #ea580c !important; }
-        .ytyt-vlc-btn svg { width: 20px !important; height: 20px !important; fill: white !important; }
-        .ytyt-dl-btn {
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 6px !important;
-            padding: 0 16px !important;
-            height: 36px !important;
-            margin-left: 8px !important;
-            border-radius: 18px !important;
-            border: none !important;
-            background: #22c55e !important;
-            color: white !important;
-            font-family: "Roboto", "Arial", sans-serif !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
-            cursor: pointer !important;
-        }
-        .ytyt-dl-btn:hover { background: #16a34a !important; }
-        .ytyt-dl-btn svg { width: 20px !important; height: 20px !important; fill: white !important; }
-    `);
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = '.ytyt-container{position:relative!important;display:inline-flex!important;align-items:center!important}.ytyt-settings-panel{position:absolute!important;top:100%!important;right:0!important;margin-top:8px!important;background:#1f2937!important;border:1px solid #374151!important;border-radius:12px!important;padding:16px!important;min-width:200px!important;z-index:9999!important;box-shadow:0 10px 25px rgba(0,0,0,0.5)!important}.ytyt-settings-title{margin:0 0 12px 0!important;color:#f3f4f6!important;font-size:14px!important;font-weight:600!important}.ytyt-settings-item{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:8px 0!important;color:#d1d5db!important;font-size:13px!important}.ytyt-toggle{position:relative!important;width:40px!important;height:22px!important;background:#374151!important;border-radius:11px!important;cursor:pointer!important;transition:background 0.2s!important}.ytyt-toggle.active{background:#22c55e!important}.ytyt-toggle::after{content:""!important;position:absolute!important;top:2px!important;left:2px!important;width:18px!important;height:18px!important;background:white!important;border-radius:50%!important;transition:left 0.2s!important}.ytyt-toggle.active::after{left:20px!important}';
+    (document.head || document.documentElement).appendChild(styleSheet);
 
-    function createSvg(pathD) {
-        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('viewBox', '0 0 24 24');
-        svg.setAttribute('width', '20');
-        svg.setAttribute('height', '20');
-        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', pathD);
-        path.setAttribute('fill', 'white');
-        svg.appendChild(path);
-        return svg;
+    function createSvg(d, f='white') { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('width', '20'); s.setAttribute('height', '20'); const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', d); p.setAttribute('fill', f); s.appendChild(p); return s; }
+    function getCurrentVideoId() { const u = new URLSearchParams(window.location.search).get('v'); if (u) return u; const m = window.location.pathname.match(/\/shorts\/([a-zA-Z0-9_-]+)/); return m ? m[1] : null; }
+    function getCurrentVideoUrl() { const id = getCurrentVideoId(); return id ? 'https://www.youtube.com/watch?v=' + id : null; }
+    function openInVLC() { const u = getCurrentVideoUrl(); if (u) window.location.href = 'ytvlc://' + encodeURIComponent(u); }
+    function downloadVideo() { const u = getCurrentVideoUrl(); if (u) window.location.href = 'ytdl://' + encodeURIComponent(u); }
+    function downloadAudio() { const u = getCurrentVideoUrl(); if (u) window.location.href = 'ytdl://' + encodeURIComponent(u) + '?ytyt_audio_only=1'; }
+
+    async function downloadTranscript() {
+        const videoId = getCurrentVideoId(); if (!videoId) return;
+        try {
+            const response = await fetch(window.location.href); const html = await response.text();
+            const tracksMatch = html.match(/"captionTracks":\s*(\[.*?\])/s); let captionTracks = [];
+            if (tracksMatch) { try { let j = tracksMatch[1], d = 0, e = 0; for (let i = 0; i < j.length; i++) { if (j[i] === '[') d++; if (j[i] === ']') d--; if (d === 0) { e = i + 1; break; } } captionTracks = JSON.parse(j.substring(0, e)); } catch (e) {} }
+            if (captionTracks.length === 0) { alert('No transcript available.'); return; }
+            let track = captionTracks.find(t => t.languageCode === 'en' || t.languageCode?.startsWith('en')) || captionTracks[0];
+            if (!track?.baseUrl) { alert('Could not find transcript URL.'); return; }
+            const transcriptXml = await (await fetch(track.baseUrl)).text();
+            const xmlDoc = new DOMParser().parseFromString(transcriptXml, 'text/xml');
+            const textElements = xmlDoc.querySelectorAll('text'); if (textElements.length === 0) { alert('Transcript is empty.'); return; }
+            let title = document.querySelector('h1.ytd-watch-metadata yt-formatted-string')?.textContent || document.title.replace(' - YouTube', '') || 'transcript';
+            title = title.replace(/[<>:"/\\|?*]/g, '').trim();
+            let txt = 'Transcript: ' + title + '\nVideo: ' + getCurrentVideoUrl() + '\n' + '='.repeat(50) + '\n\n';
+            textElements.forEach(el => { const s = parseFloat(el.getAttribute('start') || 0); const t = el.textContent.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/\n/g, ' ').trim(); if (t) { const m = Math.floor(s / 60), sec = Math.floor(s % 60); txt += '[' + m.toString().padStart(2, '0') + ':' + sec.toString().padStart(2, '0') + '] ' + t + '\n'; } });
+            const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' }); const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = title + '_transcript.txt'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        } catch (error) { alert('Failed to download transcript.'); }
     }
 
-    function getCurrentVideoUrl() {
-        var urlParams = new URLSearchParams(window.location.search);
-        var videoId = urlParams.get('v');
-        if (videoId) return 'https://www.youtube.com/watch?v=' + videoId;
-        var shortsMatch = window.location.pathname.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
-        if (shortsMatch) return 'https://www.youtube.com/watch?v=' + shortsMatch[1];
-        return null;
+    function buttonsExist() { return document.querySelector('.ytyt-container') !== null; }
+    function removeButtons() { document.querySelectorAll('.ytyt-container').forEach(el => el.remove()); }
+
+    function createSettingsPanel() {
+        const panel = document.createElement('div'); panel.className = 'ytyt-settings-panel';
+        const title = document.createElement('div'); title.className = 'ytyt-settings-title'; title.textContent = 'YTYT Settings'; panel.appendChild(title);
+        [{ key: 'showVLC', label: 'VLC Button' }, { key: 'showVideo', label: 'Video Download' }, { key: 'showAudio', label: 'Audio Download' }, { key: 'showTranscript', label: 'Transcript' }].forEach(({ key, label }) => {
+            const item = document.createElement('div'); item.className = 'ytyt-settings-item';
+            const labelSpan = document.createElement('span'); labelSpan.textContent = label; item.appendChild(labelSpan);
+            const toggle = document.createElement('div'); toggle.className = 'ytyt-toggle' + (settings[key] ? ' active' : ''); toggle.dataset.setting = key;
+            toggle.addEventListener('click', (e) => { e.stopPropagation(); settings[key] = !settings[key]; toggle.classList.toggle('active'); saveSettings(settings); removeButtons(); setTimeout(createButtons, 100); });
+            item.appendChild(toggle); panel.appendChild(item);
+        });
+        return panel;
     }
 
-    function openInVLC() {
-        var url = getCurrentVideoUrl();
-        if (url) window.location.href = 'ytvlc://' + encodeURIComponent(url);
-    }
-
-    function downloadVideo() {
-        var url = getCurrentVideoUrl();
-        if (url) window.location.href = 'ytdl://' + encodeURIComponent(url);
+    function createButton(cls, ttl, bg, hv, icon, lbl, onClick) {
+        const btn = document.createElement('button'); btn.className = cls; btn.title = ttl;
+        btn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:0 16px;height:36px;margin-left:8px;border-radius:18px;border:none;background:'+bg+';color:white;font-family:"Roboto","Arial",sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.2s;';
+        btn.onmouseenter = () => { btn.style.background = hv; }; btn.onmouseleave = () => { btn.style.background = bg; };
+        btn.appendChild(createSvg(icon)); btn.appendChild(document.createTextNode(' ' + lbl));
+        btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); onClick(); });
+        return btn;
     }
 
     function createButtons() {
-        document.querySelectorAll('.ytyt-vlc-btn, .ytyt-dl-btn').forEach(function(el) { el.remove(); });
-        if (!getCurrentVideoUrl()) return;
+        if (!getCurrentVideoId() || buttonsExist()) return buttonsExist();
+        const selectors = ['#top-level-buttons-computed', 'ytd-menu-renderer.ytd-watch-metadata #top-level-buttons-computed', '#actions ytd-menu-renderer #top-level-buttons-computed'];
+        let actionBar = null; for (const sel of selectors) { actionBar = document.querySelector(sel); if (actionBar && actionBar.offsetParent !== null) break; }
+        if (!actionBar) return false;
 
-        var actionBar = document.querySelector('#top-level-buttons-computed');
-        if (!actionBar) return;
+        const container = document.createElement('div'); container.className = 'ytyt-container';
+        if (settings.showVLC) container.appendChild(createButton('ytyt-vlc-btn', 'Stream in VLC', '#f97316', '#ea580c', 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z', 'VLC', openInVLC));
+        if (settings.showVideo) container.appendChild(createButton('ytyt-video-btn', 'Download Video', '#22c55e', '#16a34a', 'M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z', 'Video', downloadVideo));
+        if (settings.showAudio) container.appendChild(createButton('ytyt-audio-btn', 'Download MP3', '#8b5cf6', '#7c3aed', 'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z', 'MP3', downloadAudio));
+        if (settings.showTranscript) container.appendChild(createButton('ytyt-transcript-btn', 'Download Transcript', '#3b82f6', '#2563eb', 'M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z', 'TXT', downloadTranscript));
 
-        var vlcBtn = document.createElement('button');
-        vlcBtn.className = 'ytyt-vlc-btn';
-        vlcBtn.title = 'Stream in VLC Player';
-        vlcBtn.appendChild(createSvg('M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z'));
-        vlcBtn.appendChild(document.createTextNode(' VLC'));
-        vlcBtn.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); openInVLC(); });
-
-        var dlBtn = document.createElement('button');
-        dlBtn.className = 'ytyt-dl-btn';
-        dlBtn.title = 'Download with yt-dlp';
-        dlBtn.appendChild(createSvg('M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z'));
-        dlBtn.appendChild(document.createTextNode(' DL'));
-        dlBtn.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); downloadVideo(); });
-
-        actionBar.appendChild(vlcBtn);
-        actionBar.appendChild(dlBtn);
+        const settingsBtn = document.createElement('button'); settingsBtn.className = 'ytyt-settings-btn'; settingsBtn.title = 'YTYT Settings';
+        settingsBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;margin-left:8px;border-radius:50%;border:none;background:#374151;cursor:pointer;transition:background 0.2s;';
+        settingsBtn.onmouseenter = () => { settingsBtn.style.background = '#4b5563'; }; settingsBtn.onmouseleave = () => { settingsBtn.style.background = '#374151'; };
+        settingsBtn.appendChild(createSvg('M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z', '#9ca3af'));
+        let panelVisible = false, settingsPanel = null;
+        settingsBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation();
+            if (panelVisible && settingsPanel) { settingsPanel.remove(); settingsPanel = null; panelVisible = false; }
+            else { settingsPanel = createSettingsPanel(); container.appendChild(settingsPanel); panelVisible = true;
+                const closePanel = (evt) => { if (settingsPanel && !settingsPanel.contains(evt.target) && evt.target !== settingsBtn) { settingsPanel.remove(); settingsPanel = null; panelVisible = false; document.removeEventListener('click', closePanel); } };
+                setTimeout(() => document.addEventListener('click', closePanel), 10); }
+        });
+        container.appendChild(settingsBtn); actionBar.appendChild(container); return true;
     }
 
-    function tryCreate(n) {
-        if (n <= 0) return;
-        createButtons();
-        if (!document.querySelector('.ytyt-vlc-btn') && getCurrentVideoUrl()) {
-            setTimeout(function() { tryCreate(n - 1); }, 1000);
-        }
-    }
-
-    setTimeout(function() { tryCreate(5); }, 2000);
-
-    var lastUrl = location.href;
-    new MutationObserver(function() {
-        if (location.href !== lastUrl) {
-            lastUrl = location.href;
-            setTimeout(function() { tryCreate(5); }, 1500);
-        }
-    }).observe(document.body, { subtree: true, childList: true });
-
-    window.addEventListener('yt-navigate-finish', function() { setTimeout(function() { tryCreate(5); }, 1000); });
+    let retryCount = 0;
+    function tryCreateButtons() { if (createButtons()) { retryCount = 0; return; } if (retryCount < 15) { retryCount++; setTimeout(tryCreateButtons, Math.min(500 * Math.pow(1.5, retryCount - 1), 3000)); } else retryCount = 0; }
+    let currentVideoId = null;
+    function handleNavigation() { const newId = getCurrentVideoId(); if (newId !== currentVideoId) { currentVideoId = newId; removeButtons(); retryCount = 0; if (newId) setTimeout(tryCreateButtons, 500); } else if (newId && !buttonsExist()) tryCreateButtons(); }
+    function init() { handleNavigation(); new MutationObserver(() => { if (getCurrentVideoId() && !buttonsExist()) { clearTimeout(window.ytytDebounce); window.ytytDebounce = setTimeout(handleNavigation, 300); } }).observe(document.body || document.documentElement, { childList: true, subtree: true }); window.addEventListener('yt-navigate-finish', () => setTimeout(handleNavigation, 500)); window.addEventListener('yt-navigate-start', removeButtons); window.addEventListener('popstate', () => setTimeout(handleNavigation, 500)); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+    window.addEventListener('load', () => setTimeout(handleNavigation, 1000));
 })();
 '@
                     $userscript | Set-Content (Join-Path $script:InstallPath "YTYT-Downloader.user.js") -Encoding UTF8
